@@ -13,6 +13,7 @@ fn main() {
         "show" => pomodoro::client::get_time(),
         "start" => pomodoro::client::start_session(),
         "stop" => pomodoro::client::stop_session(),
+        "session" => pomodoro::client::get_session(),
         "set" => pomodoro::client::set_time(
             args[2]
                 .parse::<u64>()

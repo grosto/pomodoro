@@ -44,3 +44,10 @@ pub fn set_time(time_in_seconds: u64) {
 
   write_to_server(&mut stream, Request::Set(time_in_seconds));
 }
+
+pub fn get_session() {
+  let mut stream = UnixStream::connect(SOCKET_PATH).unwrap();
+
+  let session = write_to_server(&mut stream, Request::Session);
+  println!("{}", session);
+}

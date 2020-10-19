@@ -39,6 +39,12 @@ fn handle_client_request(mut stream: UnixStream, pomodoro: Arc<Mutex<pomodoro::P
         pomodoro.set_time_remaining(Duration::from_secs(n));
         format!("{}", pomodoro.get_time_remaining().as_secs())
       }
+      Request::Session => {
+        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        let session = pomodoro.get_session().clone() as i32;
+
+        format!("{}", session)
+      }
     };
 
     writeln!(stream, "{}", paylod).expect("failed to write to stream");

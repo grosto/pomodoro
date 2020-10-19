@@ -3,9 +3,9 @@ use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Session {
-  ShortBreak,
-  LongBreak,
-  Focus,
+  Focus = 1,
+  ShortBreak = 2,
+  LongBreak = 3,
 }
 
 pub struct Pomodoro {
@@ -110,6 +110,10 @@ impl Pomodoro {
 
   fn set_session(&mut self, session: Session) {
     self.current_session = session;
+  }
+
+  pub fn get_session(&mut self) -> &Session {
+    &self.current_session
   }
 
   pub fn start_session(&mut self) {

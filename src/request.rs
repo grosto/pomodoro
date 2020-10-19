@@ -3,6 +3,7 @@ pub const START: &str = "start";
 pub const STOP: &str = "stop";
 pub const SHOW: &str = "show";
 pub const SET: &str = "set";
+pub const SESSION: &str = "session";
 
 #[derive(Debug, PartialEq)]
 pub enum Request {
@@ -10,6 +11,7 @@ pub enum Request {
   Set(u64), // seconds
   Start,
   Stop,
+  Session,
 }
 
 impl From<&str> for Request {
@@ -18,6 +20,7 @@ impl From<&str> for Request {
       SHOW => Request::Show,
       START => Request::Start,
       STOP => Request::Stop,
+      SESSION => Request::Session,
       a => {
         let vec: Vec<&str> = a.split(',').collect();
         if vec[0] != "set" {
@@ -37,6 +40,7 @@ impl Into<String> for Request {
       Request::Set(n) => format!("{},{}", SET, n),
       Request::Start => String::from(START),
       Request::Stop => String::from(STOP),
+      Request::Session => String::from(SESSION),
     }
   }
 }
