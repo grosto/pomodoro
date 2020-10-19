@@ -9,10 +9,16 @@ fn main() {
     };
 
     match command {
-        "start-server" => pomodoro::start_timer_server(),
+        "start-server" => pomodoro::start_pomodoro_server(),
         "show" => pomodoro::client::get_time(),
         "start" => pomodoro::client::start_session(),
         "stop" => pomodoro::client::stop_session(),
+        "set" => pomodoro::client::set_time(
+            args[2]
+                .parse::<u64>()
+                .expect("second argument of set must be a number")
+                * 60,
+        ),
         _ => panic!("unknown error"),
     }
 }

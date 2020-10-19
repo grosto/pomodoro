@@ -1,4 +1,4 @@
-use notify_rust::{Notification, Timeout};
+use mac_notification_sys::send_notification;
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,12 +20,12 @@ pub struct Pomodoro {
 }
 
 pub struct PomodoroConfig {
-  is_running: bool,
-  long_break_duration: Duration,
-  short_break_duration: Duration,
-  focus_duration: Duration,
-  initial_session: Session,
-  should_notify: bool,
+  pub is_running: bool,
+  pub long_break_duration: Duration,
+  pub short_break_duration: Duration,
+  pub focus_duration: Duration,
+  pub initial_session: Session,
+  pub should_notify: bool,
 }
 
 impl Default for PomodoroConfig {
@@ -72,11 +72,7 @@ impl Pomodoro {
     if !self.get_is_running() {
       return;
     }
-    if self.time_remaining.as_secs() == 0 {
-      return;
-    }
 
-    self.set_time_remaining(self.time_remaining - TICK_INTERVAL);
     if self.time_remaining.as_secs() == 0 {
       self.stop_session();
       let old_session = &self.current_session.clone();
@@ -99,6 +95,8 @@ impl Pomodoro {
       if self.should_notify {
         notify(create_notification_config_for_session(old_session));
       }
+    } else {
+      self.set_time_remaining(self.time_remaining - TICK_INTERVAL);
     }
   }
 
@@ -230,32 +228,25 @@ mod pomodoro_struct {
 fn create_notification_config_for_session(session: &Session) -> NotificationConfig {
   match session {
     Session::Focus => NotificationConfig {
-      summary: "Focus Session Ended",
+      title: "Focus Session Ended",
       body: "Take a break",
     },
     Session::LongBreak => NotificationConfig {
-      summary: "Long Break Ended",
+      title: "Long Break Ended",
       body: "Get back To work",
     },
     Session::ShortBreak => NotificationConfig {
-      summary: "Short Break Ended",
+      title: "Short Break Ended",
       body: "Get back To work",
     },
   }
 }
 
 struct NotificationConfig<'a> {
-  summary: &'a str,
+  title: &'a str,
   body: &'a str,
 }
 
 fn notify(config: NotificationConfig) {
-  Notification::new()
-    .appname("Pomodoro")
-    .summary(config.summary)
-    .body(config.body)
-    .icon("appointment-soon")
-    .timeout(Timeout::Milliseconds(300))
-    .show()
-    .expect("notification succeded");
+  send_notification(config.title, &None, config.body, &None).ok();
 }

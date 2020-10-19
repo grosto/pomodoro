@@ -1,7 +1,8 @@
 pub mod client;
 mod pomodoro;
-mod shared;
+mod request;
 
+use request::Request;
 use std::io::prelude::*;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::Arc;
@@ -10,40 +11,42 @@ use std::thread;
 use std::time::Duration;
 
 fn handle_client_request(mut stream: UnixStream, pomodoro: Arc<Mutex<pomodoro::Pomodoro>>) {
-  println!("starting reading");
-  let reader = stream.try_clone().unwrap();
+  let reader = stream.try_clone().expect("failed to copy unix stream");
   let reader = std::io::BufReader::new(reader);
 
-  for response in reader.lines() {
-    let response = response.unwrap();
+  for request in reader.lines() {
+    let request = request.expect("failed to read request");
 
-    if response == "start" {
-      let mut pomodoro = pomodoro.lock().unwrap();
-      pomodoro.start_session();
-      return;
-    }
-    if response == "stop" {
-      let mut pomodoro = pomodoro.lock().unwrap();
-      pomodoro.stop_session();
-      return;
-    }
-    if response == "show" {
-      let pomodoro = pomodoro.lock().unwrap();
-      let payload = pomodoro.get_time_remaining().as_secs();
-      writeln!(stream, "{}", payload).unwrap();
-      stream.flush().unwrap();
-      return;
-    }
-    let int = response.parse::<u64>().unwrap();
-    let mut pomodoro = pomodoro.lock().unwrap();
-    pomodoro.set_time_remaining(Duration::from_secs(int));
-    let payload = format!("time left {}", pomodoro.get_time_remaining().as_secs());
-    writeln!(stream, "{}", payload).unwrap();
-    stream.flush().unwrap();
+    let request: Request = Request::from(request.as_str());
+    let paylod = match request {
+      Request::Start => {
+        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        pomodoro.start_session();
+        String::from("")
+      }
+      Request::Stop => {
+        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        pomodoro.stop_session();
+        String::from("")
+      }
+      Request::Show => {
+        let pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        let payload = pomodoro.get_time_remaining().as_secs();
+        format!("{}", payload)
+      }
+      Request::Set(n) => {
+        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        pomodoro.set_time_remaining(Duration::from_secs(n));
+        format!("{}", pomodoro.get_time_remaining().as_secs())
+      }
+    };
+
+    writeln!(stream, "{}", paylod).expect("failed to write to stream");
+    stream.flush().expect("failed to flush stream");
   }
 }
 
-const PATH: &str = "/tmp/rust-uds.sock";
+pub const SOCKET_PATH: &str = "/tmp/pomodoro.sock";
 
 fn start_tick(pomodoro: &Arc<Mutex<pomodoro::Pomodoro>>) {
   let pomodoro_clone = Arc::clone(pomodoro);
@@ -55,15 +58,19 @@ fn start_tick(pomodoro: &Arc<Mutex<pomodoro::Pomodoro>>) {
   });
 }
 
-pub fn start_timer_server() {
-  std::fs::remove_file(PATH).unwrap_or_else(|e| match e.kind() {
+pub fn start_pomodoro_server() {
+  std::fs::remove_file(SOCKET_PATH).unwrap_or_else(|e| match e.kind() {
     std::io::ErrorKind::NotFound => (),
     _ => panic!("{}", e),
   });
 
-  let listener = UnixListener::bind(PATH).unwrap();
+  let listener = UnixListener::bind(SOCKET_PATH).expect("failed to bind to socket");
+  println!("Server starting listening");
 
-  let pomodoro = pomodoro::Pomodoro::new(Default::default());
+  let pomodoro = pomodoro::Pomodoro::new(pomodoro::PomodoroConfig {
+    should_notify: true,
+    ..Default::default()
+  });
 
   let pomodoro = Arc::new(Mutex::new(pomodoro));
 
