@@ -93,7 +93,9 @@ impl Pomodoro {
       self.set_time_remaining(self.get_initial_time_for_session(&self.current_session));
 
       if self.should_notify {
-        notify(create_notification_config_for_session(old_session));
+        if cfg!(target_os = "macos") {
+          notify(create_notification_config_for_session(old_session));
+        }
       }
     } else {
       self.set_time_remaining(self.time_remaining - TICK_INTERVAL);
@@ -251,6 +253,7 @@ struct NotificationConfig<'a> {
   body: &'a str,
 }
 
+#[cfg(target_os = "macos")]
 fn notify(config: NotificationConfig) {
   send_notification(config.title, &None, config.body, &None).ok();
 }
