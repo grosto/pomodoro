@@ -73,7 +73,18 @@ impl Pomodoro {
       return;
     }
 
-    if self.time_remaining.as_secs() == 0 {
+    // It's possible that user sets time to 0 manually
+    let new_time_remaining = if self.time_remaining.as_secs() == 0 {
+      Duration::from_secs(0)
+    } else {
+      self.time_remaining - TICK_INTERVAL
+    };
+
+    println!("{}", new_time_remaining.as_secs());
+
+    self.set_time_remaining(new_time_remaining);
+
+    if new_time_remaining.as_secs() == 0 {
       self.stop_session();
       let old_session = &self.current_session.clone();
       match &self.current_session {
@@ -90,15 +101,11 @@ impl Pomodoro {
         }
       }
 
-      self.set_time_remaining(self.get_initial_time_for_session(&self.current_session));
-
       if self.should_notify {
         if cfg!(target_os = "macos") {
           notify(create_notification_config_for_session(old_session));
         }
       }
-    } else {
-      self.set_time_remaining(self.time_remaining - TICK_INTERVAL);
     }
   }
 
@@ -112,6 +119,7 @@ impl Pomodoro {
 
   fn set_session(&mut self, session: Session) {
     self.current_session = session;
+    self.set_time_remaining(self.get_initial_time_for_session(&self.current_session));
   }
 
   pub fn get_session(&mut self) -> &Session {
