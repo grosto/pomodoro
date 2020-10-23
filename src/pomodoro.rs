@@ -102,9 +102,7 @@ impl Pomodoro {
       }
 
       if self.should_notify {
-        if cfg!(target_os = "macos") {
-          notify(create_notification_config_for_session(old_session));
-        }
+        notify(create_notification_config_for_session(old_session));
       }
     }
   }
@@ -261,7 +259,6 @@ struct NotificationConfig<'a> {
   body: &'a str,
 }
 
-#[cfg(target_os = "macos")]
 fn notify(config: NotificationConfig) {
-  send_notification(config.title, &None, config.body, &None).ok();
+  send_notification(config.title, &None, config.body, &Some("Ping")).ok();
 }
