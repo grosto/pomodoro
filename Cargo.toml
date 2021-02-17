@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 mac-notification-sys = "0.3"
-clap = "~2.27.0"
+clap = "2.33.3"
+anyhow = "1.0.38"

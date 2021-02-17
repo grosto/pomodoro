@@ -27,7 +27,7 @@
     <key>ProgramArguments</key>
     <array>
       <string>/usr/local/bin/pomodoro</string>
-      <string>start-server</string>
+      <string>run-server</string>
     </array>
 
   </dict>

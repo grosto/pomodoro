@@ -80,26 +80,13 @@ impl Pomodoro {
       self.time_remaining - TICK_INTERVAL
     };
 
-    println!("{}", new_time_remaining.as_secs());
+    // println!("{}", new_time_remaining.as_secs());
 
     self.set_time_remaining(new_time_remaining);
 
     if new_time_remaining.as_secs() == 0 {
-      self.stop_session();
       let old_session = &self.current_session.clone();
-      match &self.current_session {
-        Session::Focus => {
-          self.rounds += 1;
-          if self.rounds % 4 == 0 {
-            self.set_session(Session::LongBreak);
-          } else {
-            self.set_session(Session::ShortBreak);
-          }
-        }
-        _ => {
-          self.set_session(Session::Focus);
-        }
-      }
+      self.switch_to_next_session();
 
       if self.should_notify {
         notify(create_notification_config_for_session(old_session));
@@ -120,8 +107,12 @@ impl Pomodoro {
     self.set_time_remaining(self.get_initial_time_for_session(&self.current_session));
   }
 
-  pub fn get_session(&mut self) -> &Session {
+  pub fn get_session(&self) -> &Session {
     &self.current_session
+  }
+
+  pub fn get_rounds(&self) -> u32 {
+    self.rounds
   }
 
   pub fn start_session(&mut self) {
@@ -138,6 +129,36 @@ impl Pomodoro {
 
   pub fn set_time_remaining(&mut self, time_remaining: Duration) {
     self.time_remaining = time_remaining;
+  }
+
+  pub fn next_session(&mut self, no_start: bool) {
+    self.switch_to_next_session();
+    if !no_start {
+      self.start_session();
+    }
+  }
+
+  fn switch_to_next_session(&mut self) {
+    self.stop_session();
+    match &self.current_session {
+      Session::Focus => {
+        self.rounds += 1;
+        if self.rounds % 4 == 0 {
+          self.set_session(Session::LongBreak);
+        } else {
+          self.set_session(Session::ShortBreak);
+        }
+      }
+      _ => {
+        self.set_session(Session::Focus);
+      }
+    }
+  }
+
+  pub fn reset_rounds(&mut self) {
+    self.stop_session();
+    self.set_session(Session::Focus);
+    self.rounds = 0;
   }
 }
 
@@ -184,7 +205,7 @@ mod pomodoro_struct {
       ..Default::default()
     });
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::ShortBreak);
+    assert_eq!(*pomodoro.get_session(), Session::ShortBreak);
   }
 
   #[test]
@@ -196,10 +217,10 @@ mod pomodoro_struct {
       ..Default::default()
     });
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::ShortBreak);
+    assert_eq!(*pomodoro.get_session(), Session::ShortBreak);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::Focus);
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
   }
 
   #[test]
@@ -210,30 +231,67 @@ mod pomodoro_struct {
       focus_duration: TICK_INTERVAL,
       ..Default::default()
     });
+    assert_eq!(pomodoro.rounds, 0);
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::ShortBreak);
+    assert_eq!(*pomodoro.get_session(), Session::ShortBreak);
     assert_eq!(pomodoro.rounds, 1);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::Focus);
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::ShortBreak);
+    assert_eq!(*pomodoro.get_session(), Session::ShortBreak);
     assert_eq!(pomodoro.rounds, 2);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::Focus);
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::ShortBreak);
+    assert_eq!(*pomodoro.get_session(), Session::ShortBreak);
     assert_eq!(pomodoro.rounds, 3);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::Focus);
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
     pomodoro.start_session();
     pomodoro.tick();
-    assert_eq!(pomodoro.current_session, Session::LongBreak);
+    assert_eq!(*pomodoro.get_session(), Session::LongBreak);
     assert_eq!(pomodoro.rounds, 4);
+  }
+  #[test]
+  fn next_session_test() {
+    let mut pomodoro = Pomodoro::new(PomodoroConfig {
+      is_running: true,
+      focus_duration: TICK_INTERVAL,
+      short_break_duration: TICK_INTERVAL,
+      ..Default::default()
+    });
+
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
+    pomodoro.next_session(true);
+    assert_eq!(*pomodoro.get_session(), Session::ShortBreak);
+    assert_eq!(pomodoro.get_is_running(), false);
+    pomodoro.next_session(true);
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
+    assert_eq!(pomodoro.get_is_running(), false);
+  }
+
+  #[test]
+  fn should_reset_rounds() {
+    let mut pomodoro = Pomodoro::new(PomodoroConfig {
+      is_running: true,
+      focus_duration: TICK_INTERVAL,
+      short_break_duration: TICK_INTERVAL,
+      ..Default::default()
+    });
+
+    assert_eq!(pomodoro.get_session(), &Session::Focus);
+    pomodoro.next_session(false);
+    assert_eq!(pomodoro.get_is_running(), true);
+    assert_eq!(pomodoro.get_rounds(), 1);
+    pomodoro.reset_rounds();
+    assert_eq!(pomodoro.get_rounds(), 0);
+    assert_eq!(pomodoro.get_is_running(), false);
+    assert_eq!(*pomodoro.get_session(), Session::Focus);
   }
 }
 

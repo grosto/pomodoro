@@ -1,14 +1,14 @@
-pub mod client;
 mod pomodoro;
-mod request;
+pub mod request;
 
+use anyhow::Context;
 use request::Request;
-use std::io::prelude::*;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+use std::{convert::TryFrom, io::prelude::*};
 
 fn handle_client_request(mut stream: UnixStream, pomodoro: Arc<Mutex<pomodoro::Pomodoro>>) {
   let reader = stream.try_clone().expect("failed to copy unix stream");
@@ -17,7 +17,9 @@ fn handle_client_request(mut stream: UnixStream, pomodoro: Arc<Mutex<pomodoro::P
   for request in reader.lines() {
     let request = request.expect("failed to read request");
 
-    let request: Request = Request::from(request.as_str());
+    let request = Request::try_from(request.as_str())
+      .context("could not parse request")
+      .unwrap();
     let paylod = match request {
       Request::Start => {
         let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
@@ -29,10 +31,11 @@ fn handle_client_request(mut stream: UnixStream, pomodoro: Arc<Mutex<pomodoro::P
         pomodoro.stop_session();
         String::from("")
       }
-      Request::Show => {
+      Request::Get => {
         let pomodoro = pomodoro.lock().expect("failed to acquire lock");
-        let payload = pomodoro.get_time_remaining().as_secs();
-        format!("{}", payload)
+        let time_remaining = pomodoro.get_time_remaining().as_secs();
+        let payload = pomodoro.get_rounds();
+        format!("{},{}", time_remaining, payload)
       }
       Request::Set(n) => {
         let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
@@ -40,10 +43,20 @@ fn handle_client_request(mut stream: UnixStream, pomodoro: Arc<Mutex<pomodoro::P
         format!("{}", pomodoro.get_time_remaining().as_secs())
       }
       Request::Session => {
-        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        let pomodoro = pomodoro.lock().expect("failed to acquire lock");
         let session = pomodoro.get_session().clone() as i32;
 
         format!("{}", session)
+      }
+      Request::NextSession(no_start) => {
+        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        pomodoro.next_session(no_start);
+        String::from("")
+      }
+      Request::ResetRounds => {
+        let mut pomodoro = pomodoro.lock().expect("failed to acquire lock");
+        pomodoro.reset_rounds();
+        String::from("")
       }
     };
 
